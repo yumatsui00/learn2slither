@@ -4,6 +4,7 @@ from config import Default_episodes, Default_speed, Default_size, Default_model_
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--visualize", action="store_true")
+    parser.add_argument("--terminal_visualize", action="store_true")
     parser.add_argument("--episodes", type=int, default=Default_episodes)
     parser.add_argument("--speed", type=float, default=Default_speed)
     parser.add_argument("--step_mode", action="store_true")

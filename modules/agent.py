@@ -1,22 +1,21 @@
-from config import EPSILON, EPSILON_DECAY, EPSILON_MIN, GAMMA, ALPHA
+from config import EPSILON, EPSILON_DECAY, EPSILON_MIN, GAMMA, ALPHA, Default_model_path
 from modules.environment import Stage
 import numpy as np
-
+import json
 
 class Agent:
-    def __init__(self, learning=True):
+    def __init__(self, learning=True, epsilon=EPSILON, epsilon_decay=EPSILON_DECAY, epsilon_min=EPSILON_MIN, gamma=GAMMA, alpha=ALPHA):
         self.qtable = {}
-        self.epsilon = EPSILON
-        self.epsilon_decay = EPSILON_DECAY
-        self.epsilon_min = EPSILON_MIN
-        self.gamma = GAMMA
-        self.alpha = ALPHA
+        self.epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
+        self.epsilon_min = epsilon_min
+        self.gamma = gamma
+        self.alpha = alpha
         self.action_size = 4
         self.learning = learning
 
-    def get_action(self, snake_vision: list[str]):
+    def get_action(self, vision_key: tuple[str]):
         """get action for a given state"""
-        vision_key = tuple(snake_vision)
         if self.learning and np.random.random() < self.epsilon:
             return np.random.randint(0, self.action_size - 1)
         elif vision_key not in self.qtable:
@@ -29,29 +28,37 @@ class Agent:
         head = state.snake[0]
         vision = [""] * 4
         direction = [(0, 1),(0, -1),(1, 0),(-1, 0)] #right, left, up, down
-        vision_max_length = 3
         for i, (dx, dy) in enumerate(direction):
+            next_is_wall = True
             x, y = head[0], head[1]
             while 0 <= x < state.size and 0 <= y < state.size:
                 if (x, y) == head:
-                    vision[i] += "H"
+                    pass
                 elif (x, y) in state.snake:
-                    vision[i] += "S"
+                    if len(vision[i]) == 0 and next_is_wall:
+                        vision[i] += "S"
+                        break
+                    else:
+                        vision[i] += "0S"
                 elif (x, y) == state.red_apple:
                     vision[i] += "R"
                 elif (x, y) in state.green_apples:
                     vision[i] += "G"
                 else:
-                    vision[i] += "0"
+                    next_is_wall = False
                 x += dx
                 y += dy
-            vision[i] += "W"
+            if len(vision[i]) == 0:
+                if next_is_wall:
+                    vision[i] += "W"
+                else:
+                    vision[i] += "0"
 
         if print_vision:
-            self.print_vision(vision, state)
+            self.print_vision(state)
         return vision
 
-    def print_vision(self, vision: list[str], state: Stage):
+    def print_vision(self, state: Stage):
         head = state.snake[0]
         for i in range(state.size + 2):
             for j in range(state.size + 2):
@@ -72,4 +79,37 @@ class Agent:
                     else:
                         print("0", end="")
             print()
+        print("------------------------")
 
+    def learn(self, old_vision_key: tuple[str], new_vision_key: tuple[str], reward: int, action: int):
+        """learn from the experience"""
+        if not self.learning:
+            return
+
+        if old_vision_key not in self.qtable:
+            self.qtable[old_vision_key] = np.zeros(self.action_size)
+
+        if new_vision_key not in self.qtable:
+            self.qtable[new_vision_key] = np.zeros(self.action_size)
+
+        old_q_value = self.qtable[old_vision_key][action]
+        next_max = np.max(self.qtable[new_vision_key])
+        new_q_value = (1 - self.alpha) * old_q_value + self.alpha * (reward + self.gamma * next_max)
+        self.qtable[old_vision_key][action] = new_q_value
+
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
+
+    def save(self, filename=Default_model_path):
+        model_data = {
+            'qtable': {str(k): v.tolist() for k, v in self.qtable.items()},
+            'epsilon': self.epsilon
+        }
+        with open(filename, 'w') as f:
+            json.dump(model_data, f)
+
+    def load_model(self, filename):
+        with open(filename, 'r') as f:
+            model_data = json.load(f)
+        self.qtable = {eval(k): np.array(v) for k, v in model_data['qtable'].items()}
+        self.epsilon = model_data['epsilon']

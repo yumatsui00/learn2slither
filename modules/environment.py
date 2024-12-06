@@ -73,15 +73,13 @@ class Stage:
         #MOVE_PENALTY
         reward = MOVE_PENALTY
 
-        print(snake_vision)
+        #print(snake_vision)
         #collision penalty with wall or snake body
-        if (len(snake_vision[0]) == 1 or len(snake_vision[1]) == 1 or len(snake_vision[2]) == 1 or len(snake_vision[3]) == 1):
-            print("check point 2")
+        if new_head[0] < 0 or new_head[0] >= self.size or new_head[1] < 0 or new_head[1] >= self.size:
             reward += GAME_OVER_PENALTY
             self.game_over = True
             return self._get_state(), reward, self.game_over
         elif new_head in self.snake:
-            print("check point 3")
             reward += GAME_OVER_PENALTY
             self.game_over = True
             return self._get_state(), reward, self.game_over
